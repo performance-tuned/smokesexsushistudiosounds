@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smokesexsushistudiosounds soundcloud likes shuffled</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root { color-scheme: light; }
+  html { height: 100%; overscroll-behavior: none; }
+  body {
+    margin: 0; background: #fff; color: #000;
+    position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 700; font-size: 14px; line-height: 1.5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px; padding: 20px 20px 28px; box-sizing: border-box;
+    -webkit-user-select: none; user-select: none; cursor: pointer;
+    touch-action: manipulation;
+  }
+  #top { position: absolute; top: 10px; left: 0; width: 100vw; }
+  h1 {
+    width: 100%;
+    margin: 0; font-size: clamp(13px, 2.6vw, 17px); font-weight: 700;
+    line-height: 1.45; letter-spacing: normal; text-transform: lowercase; text-align: center;
+    color: #000; opacity: 1;
+  }
+  /* overflow visible so the overshoot on s/e/o is not clipped at the baseline */
+  #mark { display: block; width: 100%; height: clamp(22px, 5vw, 120px); fill: #f0f; overflow: visible; }
+  #mark text { font-family: Arial, Helvetica, sans-serif; font-weight: 700; }
+  #sub { display: block; margin-top: .4em; font-weight: 400; text-align: left; padding-left: 3px; }
+  #art {
+    width: min(100%, 1340px); height: auto;
+    max-height: calc(100vh - 53px - clamp(22px, 5vw, 120px) - 5.2 * clamp(13px, 2.6vw, 17px));
+    display: block; opacity: 1;
+    align-self: flex-end; margin: auto -20px -28px auto;
+  }
+  /* image.png carries 50px/69px of transparent edge; shift just that one out of frame */
+  #art[src$="image.png"] { transform: translate(3.91%, 7.55%); }
+  #now { margin: 0 0 0 3px; line-height: 1.45; text-align: left; max-width: 40ch; min-height: 2.4em; }
+  @media (max-width: 600px) {
+    /* photo sits bottom center, full bleed */
+    #art { width: 100vw; align-self: center; margin: auto -20px -28px; }
+    /* the opaque artwork is only 1230/1280 of the canvas, so oversize the box
+       by that ratio and pin its left edge at 0 to make the picture span the screen */
+    #art[src$="image.png"] {
+      width: 104.07vw; align-self: flex-start;
+      margin: auto auto -28px -20px; transform: translateY(7.55%);
+    }
+  }
+  #t {
+    display: block; color: #000; font-weight: 400;
+    font-size: clamp(13px, 2.6vw, 17px); line-height: 1.45;
+    letter-spacing: normal; text-transform: lowercase;
+  }
+  #a { display: block; font-size: 12px; letter-spacing: normal; color: #000; opacity: 1; margin-top: 0; }
+</style>
+</head>
+<body>
+
+<header id="top">
+<h1><svg id="mark" viewBox="0 0 1000 76" preserveAspectRatio="none" role="img" aria-label="smokesexsushistudiosounds"><text x="0" y="76" textLength="1000" lengthAdjust="spacingAndGlyphs" font-size="100">smokesexsushistudiosounds</text></svg><span id="sub">soundcloud likes: shuffled</span></h1>
+<p id="now"><span id="t">tap to play</span><span id="a"></span></p>
+</header>
+<img id="art" alt="">
+<audio id="au" preload="none"></audio>
+
+<script>
+(() => {
+  const art = document.getElementById('art');
+  const tEl = document.getElementById('t');
+  const aEl = document.getElementById('a');
+  const au  = document.getElementById('au');
+
+  (function pic(list) {
+    if (!list.length) { art.style.display = 'none'; return; }
+    art.onerror = () => pic(list.slice(1));
+    art.src = list[0];
+  })(['image.png', 'image.jpg', 'image.jpeg', 'image.gif', 'image.webp']);
+
+  let queue = [], i = -1, started = false, guard = null, misses = 0;
+
+  // Fisher-Yates over the entire library, crypto-seeded. One full pass = every
+  // like exactly once, then a fresh shuffle. No repeats until everything played.
+  const shuffle = (a) => {
+    for (let j = a.length - 1; j > 0; j--) {
+      const k = crypto.getRandomValues(new Uint32Array(1))[0] % (j + 1);
+      [a[j], a[k]] = [a[k], a[j]];
+    }
+    return a;
+  };
+
+  function next() {
+    clearTimeout(guard);
+    if (misses > 25) { tEl.textContent = 'nothing is loading'; aEl.textContent = ''; return; }
+    i++;
+    if (i >= queue.length) { shuffle(queue); i = 0; }
+    const t = queue[i];
+    tEl.textContent = t.title;
+    aEl.textContent = t.artist || '';
+    au.src = '/api/stream?id=' + t.id;
+    misses++;
+    guard = setTimeout(next, 20000); // dead or unresolvable track: move on
+    au.play().catch(() => {});
+  }
+
+  au.addEventListener('playing', () => { clearTimeout(guard); misses = 0; });
+  au.addEventListener('ended', next);
+  au.addEventListener('error', () => { if (started) next(); });
+
+  fetch('likes.json')
+    .then(r => r.json())
+    .then(list => { queue = shuffle(list.slice()); tEl.textContent = 'tap to play'; })
+    .catch(() => { tEl.textContent = 'likes.json missing'; });
+
+  // The first tap sets src and calls play() inside the gesture, which is what
+  // unlocks audio on iOS and Safari. Every later track reuses this same unlocked
+  // element, so it keeps playing on its own. After that, taps do nothing.
+  function start() {
+    if (started || !queue.length) return;
+    started = true;
+    document.body.style.cursor = 'default';
+    next();
+  }
+
+  document.body.addEventListener('click', start);
+  addEventListener('keydown', (e) => {
+    if (!started) { if (e.code === 'Space') { e.preventDefault(); start(); } return; }
+    if (e.code === 'Space') { e.preventDefault(); au.paused ? au.play() : au.pause(); }
+    if (e.code === 'ArrowRight') next();
+  });
+})();
+</script>
+</body>
+</html>
